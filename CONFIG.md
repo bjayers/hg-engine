@@ -43,6 +43,8 @@
 
  ``IMPLEMENT_CAPTURE_EXPERIENCE`` (``include/config.h`` only) is a toggle that will give Pokémon that participated in battle experience when a Pokémon is caught.
 
+ ``IMPLEMENT_GEN6_PARTY_EXP_SHARE`` (``include/config.h`` only) gives every living party member experience at the end of battle and after a catch. Participants and Pokémon holding the Exp. Share item receive a full calculated share; every other living party member receives half. Amounts are not split by party size. Comment the define out to restore the vanilla held-item Exp. Share split.
+
  ``IMPLEMENT_CRITICAL_CAPTURE`` (``include/config.h`` only) is a toggle that will enable critical captures as they appear in Gen 5 and above--the more Pokémon you have caught, the more likely that a critical capture will occur.
 
  ``IMPLEMENT_NEW_EV_IV_VIEWER`` (``include/config.h`` only) is a toggle that will enable an EV/IV viewer on the summary screen using the L, R, and Select buttons to swap between the EV's, IV's, and normal stats respectively.  This also adds up and down arrows to the stat names to make it clear which is boosted and which is nerfed.
