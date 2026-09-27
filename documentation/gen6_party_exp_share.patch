@@ -1,0 +1,131 @@
+--- a/src/battle/battle_script_commands.c
++++ b/src/battle/battle_script_commands.c
+@@ -1345,9 +1345,17 @@
+             item = GetMonData(pp, MON_DATA_HELD_ITEM, NULL);
+             eqp = GetItemData(item, ITEM_PARAM_HOLD_EFFECT, 5);
+ 
++#ifdef IMPLEMENT_GEN6_PARTY_EXP_SHARE
++            // Gen 6-style: every living party mon is eligible. Participants and
++            // Exp. Share holders get a full share; everyone else gets half.
++            if ((GetMonData(pp, MON_DATA_SPECIES, NULL)) && (GetMonData(pp, MON_DATA_HP, NULL))) {
++                break;
++            }
++#else
+             if ((eqp == HOLD_EFFECT_EXP_SHARE) || (sp->obtained_exp_right_flag[client_no] & No2Bit(sel_mons_no))) {
+                 break;
+             }
++#endif
+         }
+     }
+ 
+@@ -1409,6 +1417,23 @@
+ 
+             // debug_printf("[Task_DistributeExp_Extend] L = %d, Lp = %d, b = %d, top = %d, bottom = %d, exp = %d\n", level, Lp, base, top, bottom, totalexp);
+ 
++#ifdef IMPLEMENT_GEN6_PARTY_EXP_SHARE
++            {
++                BOOL participated = (sp->obtained_exp_right_flag[client_no] & No2Bit(sel_mons_no)) != 0;
++                BOOL holdsShare = (eqp == HOLD_EFFECT_EXP_SHARE);
++                u32 share = totalexp;
++                // Participants and Exp. Share holders keep a full calculated share.
++                // Other living party mons get half. Amounts are not split by party size.
++                if (!participated && !holdsShare) {
++                    share = totalexp / 2;
++                }
++                if (share == 0) {
++                    share = 1;
++                }
++                sp->obtained_exp = share;
++                sp->exp_share_obtained_exp = share;
++            }
++#else
+             if (monCountFromItem) {
+                 sp->obtained_exp = (totalexp / 2) / monCount;
+                 if (sp->obtained_exp == 0) {
+@@ -1425,6 +1450,7 @@
+                 }
+                 sp->exp_share_obtained_exp = 0;
+             }
++#endif
+         }
+     }
+ 
+@@ -1467,6 +1493,23 @@
+         // multiply by 255/390 (map audino to 255) to not get massively inflated experience rates
+         totalexp = 255 * GetSpeciesBaseExp(sp->battlemon[sp->fainting_client].species, sp->battlemon[sp->fainting_client].form_no) / 390; // PokePersonalParaGet(sp->battlemon[sp->fainting_client].species, PERSONAL_EXP_YIELD);
+         totalexp = (totalexp * sp->battlemon[sp->fainting_client].level) / 7;
++#ifdef IMPLEMENT_GEN6_PARTY_EXP_SHARE
++        if (sel_mons_no < BattleWorkPokeCountGet(expcalc->bw, exp_client_no) && pp != NULL) {
++            item = GetMonData(pp, MON_DATA_HELD_ITEM, NULL);
++            eqp = GetItemData(item, ITEM_PARAM_HOLD_EFFECT, 5);
++            BOOL participated = (sp->obtained_exp_right_flag[client_no] & No2Bit(sel_mons_no)) != 0;
++            BOOL holdsShare = (eqp == HOLD_EFFECT_EXP_SHARE);
++            u32 share = totalexp;
++            if (!participated && !holdsShare) {
++                share = totalexp / 2;
++            }
++            if (share == 0) {
++                share = 1;
++            }
++            sp->obtained_exp = share;
++            sp->exp_share_obtained_exp = share;
++        }
++#else
+         if (monCountFromItem) {
+             sp->obtained_exp = (totalexp / 2) / monCount;
+             if (sp->obtained_exp == 0) {
+@@ -1483,6 +1526,7 @@
+             }
+             sp->exp_share_obtained_exp = 0;
+         }
++#endif
+     }
+ 
+ #ifdef DEBUG_PRINT_EXPERIENCE_VALUES
+@@ -1502,7 +1546,26 @@
+     }
+ 
+ _skipAllThis:
++#ifdef IMPLEMENT_GEN6_PARTY_EXP_SHARE
++    // The original distributor only pays participants / Exp. Share holders.
++    // Temporarily mark every living party mon as a participant so the bench is included.
++    {
++        u32 saved_flags = sp->obtained_exp_right_flag[client_no];
++        u32 live_mask = saved_flags;
++        int party_count = BattleWorkPokeCountGet(expcalc->bw, exp_client_no);
++        for (int i = 0; i < party_count; i++) {
++            struct PartyPokemon *live = BattleWorkPokemonParamGet(expcalc->bw, exp_client_no, i);
++            if (live != NULL && GetMonData(live, MON_DATA_SPECIES, NULL) && GetMonData(live, MON_DATA_HP, NULL)) {
++                live_mask |= No2Bit(i);
++            }
++        }
++        sp->obtained_exp_right_flag[client_no] = live_mask;
++        Task_DistributeExp(arg0, work);
++        sp->obtained_exp_right_flag[client_no] = saved_flags;
++    }
++#else
+     Task_DistributeExp(arg0, work);
++#endif
+ }
+ 
+ #ifdef IMPLEMENT_CAPTURE_EXPERIENCE
+@@ -1565,11 +1628,19 @@
+                 item = GetMonData(pp, MON_DATA_HELD_ITEM, NULL);
+                 eqp = GetItemData(item, ITEM_PARAM_HOLD_EFFECT, 5);
+ 
++#ifdef IMPLEMENT_GEN6_PARTY_EXP_SHARE
++                if ((GetMonData(pp, MON_DATA_SPECIES, NULL)) && (GetMonData(pp, MON_DATA_HP, NULL))) {
++                    expcalc->work[6] = sel_mons_no;
++                    trackPartyExperience |= No2Bit(sel_mons_no);
++                    break;
++                }
++#else
+                 if ((eqp == HOLD_EFFECT_EXP_SHARE) || (expcalc->sp->obtained_exp_right_flag[(expcalc->sp->fainting_client >> 1) & 1] & No2Bit(sel_mons_no))) {
+                     expcalc->work[6] = sel_mons_no;
+                     trackPartyExperience |= No2Bit(sel_mons_no);
+                     break;
+                 }
++#endif
+             }
+         }
+         if (sel_mons_no >= BattleWorkPokeCountGet(expcalc->bw, 0)) { // invalid party index will end the task
