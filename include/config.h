@@ -69,6 +69,12 @@
 // commenting this line out disables capture experience
 #define IMPLEMENT_CAPTURE_EXPERIENCE
 
+// IMPLEMENT_GEN6_PARTY_EXP_SHARE gives every living party member experience at the end of battle
+// and after a catch. Participants and Pokémon holding Exp. Share get a full calculated share;
+// every other living party member gets half. Amounts are not split by party size.
+// Comment this line out to restore the vanilla held-item Exp. Share split.
+#define IMPLEMENT_GEN6_PARTY_EXP_SHARE
+
 // IMPLEMENT_CRITICAL_CAPTURE defines whether or not throwing a poké ball has a certain percent chance of a guaranteed capture called a critical throw
 // commenting this line out disables critical captures
 #define IMPLEMENT_CRITICAL_CAPTURE
